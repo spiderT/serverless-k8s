@@ -1,141 +1,76 @@
 // 主进程代码
 const express = require('express');
 const fs = require('fs');
-const path = require('path');
 const bodyParser = require('body-parser');
-const PORT=3001;
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
+const request = require('request');
 
-// 初始化待办任务列表，启动后保存在内存中
-let todos = [
-  {
-    key: 1,
-    disabled: false,
-    href: 'https://ant.design',
-    avatar: 'https://gw.alipayobjects.com/zos/rmsportal/eeHMaZBwmTvLdIwMfBpg.png',//'https://gw.alipayobjects.com/zos/rmsportal/udxAbMEhpwthVVcjLXik.png',
-    name: `1111`,
-    owner: '2222',
-    desc: '这是一段描述',
-    callNo: 18890992445,
-    status: 1,
-    updatedAt: new Date(),
-    createdAt: new Date(),
-    progress: 0,
-  },
-];
-//初始化用户
-const me = {
-  name: '2222',
-  avatar: 'https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png',
-  userid: '00000001',
-  email: '123@me.com',
-  signature: '1234567890987654',
-  title: '全栈工程师',
-  group: '某厂－某事业群－某平台部－某技术部－中台团队',
-  tags: [
-    {
-      key: '0',
-      label: '全栈',
-    },
-  ],
-  notifyCount: 12,
-  unreadCount: 11,
-  country: 'China',
-  geographic: {
-    province: {
-      label: '浙江省',
-      key: '330000',
-    },
-    city: {
-      label: '杭州市',
-      key: '330100',
-    },
-  },
-  address: '余杭区某小区',
-  phone: '0752-26888xxxx',
-};
+const { accessKeySecret } = require('./aliyunConfig');
+const env = process.env;
+const PORT = 3001;
+let ruleURL = 'http://localhost:3000/api/rule';
+let userURL = 'http://localhost:3002';
+if (env.isKNative === 'true') {
+  ruleURL = 'http://rule.default.svc.cluster.local/api/rule';
+  userURL = 'http://user.default.svc.cluster.local';
+}
 
 const app = express();
-// 静态资源路由
-app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(cookieParser());
+// 静态资源路由
+app.use(express.static('public'));
 
-// 后端服务路由
-app.get('/api/rule', (req, resp) => {
-  const { current = 1, pageSize = 10 } = req.query;
-  const result = {
-    data: todos,
-    total: todos.length,
-    success: true,
-    pageSize,
-    current: current || 1,
-  };
-  resp.json(result);
-});
-app.post('/api/rule', (req, res) => {
-  const body = req.body;
-  const { method, name, desc, key, status } = body;
-
-  switch (method) {
-    case 'delete':
-      todos = todos.filter(item => key.indexOf(item.key) === -1);
-      break;
-    case 'post':
-      (() => {
-        const i = todos.length+1;
-        const newRule = {
-          key: i,
-          href: 'https://ant.design',
-          avatar: [
-            'https://gw.alipayobjects.com/zos/rmsportal/eeHMaZBwmTvLdIwMfBpg.png',
-            'https://gw.alipayobjects.com/zos/rmsportal/udxAbMEhpwthVVcjLXik.png',
-          ][i % 2],
-          name,
-          owner: '曲丽丽',
-          desc,
-          callNo: Math.floor(Math.random() * 1000),
-          status: 1,
-          updatedAt: new Date(),
-          createdAt: new Date(),
-          progress: 0,
-        };
-        todos.unshift(newRule);
-        return res.json(newRule);
-      })();
-      return;
-    case 'update':
-      (() => {
-        let newRule = {};
-        todos = todos.map(item => {
-          if (item.key === key) {
-            newRule = { ...item, desc, name, status };
-            return { ...item, desc, name, status };
-          }
-          return item;
-        });
-        return res.json(newRule);
-      })();
-      return;
-    default:
-      break;
+app.all('/api/rule', (req, res) => {
+  // checkJWT(req, res);
+  if (req.method === 'PUT') {
+    request.put(ruleURL, {form: req.body}).pipe(res);
+  } else if (req.method === 'POST') {
+    request.post(ruleURL, {form: req.body}).pipe(res);
+  } else if (req.method === 'DELETE') {
+    request.del(ruleURL, {form: req.body}).pipe(res);
+  } else {
+    request.get(ruleURL).pipe(res);
   }
-  const result = {
-    list: todos,
-    pagination: {
-      total: todos.length,
-    },
-  };
-  res.json(result);
-})
-app.get('/api/currentUser', (req, resp) => {
-  resp.json(me);
+});
+
+app.get('/api/currentUser', (req, res) => {
+  // TODO:: const id = checkJWT(req, res);
+  // request.get(`${userURL}/user/${id}`).pipe(res);
+  request.get(`${userURL}/user/1`).pipe(res);
+});
+app.post('/api/login/account', (req, res) => {
+  request.post(userURL+req.path, {form: req.body}).pipe(res);
+});
+app.post('/user/register', (req, res) => {
+  request.post(userURL+req.path, {form: req.body}).pipe(res);
+});
+app.get('/api/users', (req, res) => {
+  request.get(userURL+req.path, {form: req.body}).pipe(res);
 });
 
 // SPA单页应用，默认加载index.html
-app.all("/*", (req, resp) => {
-  resp.setHeader('Content-Type', 'text/html');
-  resp.send(fs.readFileSync('./public/index.html', 'utf8'));
+app.all("/*", (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(fs.readFileSync('./public/index.html', 'utf8'));
 });
 
+const checkJWT = (req, res) => {
+  let jwtDecode;
+  try {
+    jwtDecode = jwt.verify(req.cookies.jwtToken, accessKeySecret);
+  } catch (err) {
+    res.status(403);
+    return res.json({
+      success: false,
+      message: 'JWT token auth failed',
+    });
+  }
+  return jwtDecode;
+};
 // 监听PORT端口
-app.listen(PORT, () => console.log(`Example app listening at http://localhost:${PORT}`))
+app.listen(PORT, () => {
+  console.log(`Example app listening at http://localhost:${PORT}`)
+});
