@@ -8,6 +8,7 @@
     - [4.1. Serverless 底座：Service Mesh](#41-serverless-底座service-mesh)
     - [4.2. Serverless 底座搭建：K8s 组件 Istio](#42-serverless-底座搭建k8s-组件-istio)
   - [5. Serverless 完整实现：K8s 组件 Knative](#5-serverless-完整实现k8s-组件-knative)
+  - [6. 参考资料](#6-参考资料)
 
 ## 1. PC 上的 K8s
 
@@ -333,5 +334,7 @@ kubectl get svc istio-ingressgateway -n istio-system
 
 在 Knative 中每次发布服务，都会被 Revision 组件拍一个快照，这个快照可以用于我们管理版本号和灰度流量分配。我们“待办任务”Web 服务中的用户微服务的 2 个版本流量切换，其实就是利用 Revision 和 Route 实现的。  
 
-参考资料：https://developer.aliyun.com/article/658800  
+## 6. 参考资料
+
+https://developer.aliyun.com/article/658800  
 https://time.geekbang.org/column/article/232648  
